@@ -46,7 +46,8 @@ class DatabaseStore {
     try {
       fs.writeFileSync(DATA_FILE, JSON.stringify(this.state, null, 2), 'utf-8');
     } catch (err) {
-      console.error('[DB] Failed to persist data to disk:', err);
+      // Gracefully handle Vercel's read-only serverless filesystem
+      console.warn('[DB] Disk write skipped (Running in read-only environment like Vercel). Changes preserved in-memory.');
     }
   }
 
