@@ -1,0 +1,6 @@
+{
+  "name": "CarePulse - Hospital Management",
+  "description": "Hospital management application with patient/doctor portals, AI symptom matching, appointment scheduling, and medical history.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
