@@ -1,12 +1,7 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { dbStore } from './server/db';
-import { matchDoctorForSymptoms } from './server/gemini';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import { dbStore } from '../server/db';
+import { matchDoctorForSymptoms } from '../server/gemini';
 
 const app = express();
 
@@ -20,25 +15,16 @@ app.get('/api/health', (_req: Request, res: Response) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Patient Register / Login
+// Patient Login / Register
 app.post('/api/auth/patient/login', (req: Request, res: Response) => {
   try {
     const { email, name, age, gender } = req.body;
-    if (!email) {
-      return res.status(400).json({ error: 'Email address is required.' });
-    }
+    if (!email) return res.status(400).json({ error: 'Email address is required.' });
 
     let patient = dbStore.getPatientByEmail(email);
     if (!patient) {
-      if (!name) {
-        return res.status(400).json({ error: 'User not found. Please register first.' });
-      }
-      patient = dbStore.createPatient({
-        email,
-        name,
-        age: Number(age) || 30,
-        gender: gender || 'Other',
-      });
+      if (!name) return res.status(400).json({ error: 'User not found. Please register first.' });
+      patient = dbStore.createPatient({ email, name, age: Number(age) || 30, gender: gender || 'Other' });
     }
 
     res.json({ user: patient, token: `token-${patient.id}` });
@@ -50,9 +36,7 @@ app.post('/api/auth/patient/login', (req: Request, res: Response) => {
 app.post('/api/auth/patient/register', (req: Request, res: Response) => {
   try {
     const { email, name, age, gender, phone, bloodGroup, allergies } = req.body;
-    if (!email || !name) {
-      return res.status(400).json({ error: 'Name and Email are required for registration.' });
-    }
+    if (!email || !name) return res.status(400).json({ error: 'Name and Email are required.' });
 
     const patient = dbStore.createPatient({
       email,
@@ -70,18 +54,14 @@ app.post('/api/auth/patient/register', (req: Request, res: Response) => {
   }
 });
 
-// Doctor Register / Login
+// Doctor Login / Register
 app.post('/api/auth/doctor/login', (req: Request, res: Response) => {
   try {
     const { email } = req.body;
-    if (!email) {
-      return res.status(400).json({ error: 'Doctor email address is required.' });
-    }
+    if (!email) return res.status(400).json({ error: 'Doctor email address is required.' });
 
     const doctor = dbStore.getDoctorByEmail(email);
-    if (!doctor) {
-      return res.status(404).json({ error: `No doctor account found with email '${email}'. Please register using 'Register New Doctor'.` });
-    }
+    if (!doctor) return res.status(404).json({ error: `No doctor account found with email '${email}'.` });
 
     res.json({ user: doctor, token: `token-${doctor.id}` });
   } catch (err: any) {
@@ -93,7 +73,7 @@ app.post('/api/auth/doctor/register', (req: Request, res: Response) => {
   try {
     const { email, name, department, specialty, qualification, experienceYears, uniqueCases, consultationFee, availableDays, availableSlots, bio, roomNo, avatarUrl } = req.body;
     if (!email || !name || !department || !specialty) {
-      return res.status(400).json({ error: 'Name, Email, Department, and Specialty are required for doctor registration.' });
+      return res.status(400).json({ error: 'Name, Email, Department, and Specialty are required.' });
     }
 
     const doctor = dbStore.createDoctor({
@@ -103,7 +83,7 @@ app.post('/api/auth/doctor/register', (req: Request, res: Response) => {
       specialty,
       qualification: qualification || 'MBBS, MD',
       experienceYears: Number(experienceYears) || 5,
-      uniqueCases: uniqueCases || 'Specialized clinical care and procedures.',
+      uniqueCases: uniqueCases || 'Specialized clinical care.',
       consultationFee: Number(consultationFee) || 100,
       availableDays: Array.isArray(availableDays) && availableDays.length ? availableDays : ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
       availableSlots: Array.isArray(availableSlots) && availableSlots.length ? availableSlots : ['09:00 AM', '10:30 AM', '02:00 PM', '03:30 PM'],
@@ -118,7 +98,7 @@ app.post('/api/auth/doctor/register', (req: Request, res: Response) => {
   }
 });
 
-// Get All Doctors
+// Doctors API
 app.get('/api/doctors', (req: Request, res: Response) => {
   try {
     const { department, search } = req.query;
@@ -145,16 +125,12 @@ app.get('/api/doctors', (req: Request, res: Response) => {
   }
 });
 
-// Get Doctor By ID
 app.get('/api/doctors/:id', (req: Request, res: Response) => {
   const doctor = dbStore.getDoctorById(req.params.id);
-  if (!doctor) {
-    return res.status(404).json({ error: 'Doctor not found' });
-  }
+  if (!doctor) return res.status(404).json({ error: 'Doctor not found' });
   res.json(doctor);
 });
 
-// Update Doctor Profile
 app.put('/api/doctors/:id/profile', (req: Request, res: Response) => {
   try {
     const updated = dbStore.updateDoctorProfile(req.params.id, req.body);
@@ -164,25 +140,19 @@ app.put('/api/doctors/:id/profile', (req: Request, res: Response) => {
   }
 });
 
-// Get Appointments
+// Appointments API
 app.get('/api/appointments', (req: Request, res: Response) => {
   const { patientId, doctorId } = req.query;
-  if (patientId && typeof patientId === 'string') {
-    return res.json(dbStore.getAppointmentsForPatient(patientId));
-  }
-  if (doctorId && typeof doctorId === 'string') {
-    return res.json(dbStore.getAppointmentsForDoctor(doctorId));
-  }
+  if (patientId && typeof patientId === 'string') return res.json(dbStore.getAppointmentsForPatient(patientId));
+  if (doctorId && typeof doctorId === 'string') return res.json(dbStore.getAppointmentsForDoctor(doctorId));
   res.json(dbStore.getAppointments());
 });
 
-// Book Appointment
 app.post('/api/appointments/book', (req: Request, res: Response) => {
   try {
     const { patientId, patientName, patientAge, patientGender, patientEmail, doctorId, appointmentDate, timeSlot, symptoms, severity, aiMatchReasoning } = req.body;
-
     if (!patientId || !doctorId || !appointmentDate || !timeSlot || !symptoms) {
-      return res.status(400).json({ error: 'Missing required appointment fields (patientId, doctorId, appointmentDate, timeSlot, symptoms).' });
+      return res.status(400).json({ error: 'Missing required appointment fields.' });
     }
 
     const appointment = dbStore.createAppointment({
@@ -205,7 +175,6 @@ app.post('/api/appointments/book', (req: Request, res: Response) => {
   }
 });
 
-// Update Appointment Status
 app.patch('/api/appointments/:id/status', (req: Request, res: Response) => {
   try {
     const { status } = req.body;
@@ -219,13 +188,11 @@ app.patch('/api/appointments/:id/status', (req: Request, res: Response) => {
   }
 });
 
-// AI Symptom Matcher
+// AI Symptom Matcher API
 app.post('/api/ai/symptom-match', async (req: Request, res: Response) => {
   try {
     const { symptomText, patientAge, patientGender, durationDays, painScale } = req.body;
-    if (!symptomText) {
-      return res.status(400).json({ error: 'Symptom description is required.' });
-    }
+    if (!symptomText) return res.status(400).json({ error: 'Symptom description is required.' });
 
     const doctors = dbStore.getDoctors();
     const matchResult = await matchDoctorForSymptoms(
@@ -246,21 +213,18 @@ app.post('/api/ai/symptom-match', async (req: Request, res: Response) => {
   }
 });
 
-// Get Medical History for Patient
+// Medical History API
 app.get('/api/medical-history/:patientId', (req: Request, res: Response) => {
   try {
-    const records = dbStore.getMedicalRecordsForPatient(req.params.patientId);
-    res.json(records);
+    res.json(dbStore.getMedicalRecordsForPatient(req.params.patientId));
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// Add Medical Record by Doctor
 app.post('/api/medical-history/add', (req: Request, res: Response) => {
   try {
     const { patientId, patientName, doctorId, doctorName, doctorSpecialty, appointmentId, visitDate, diagnosis, symptomsSummary, prescriptions, clinicalNotes, followUpDate, vitals } = req.body;
-
     if (!patientId || !doctorId || !diagnosis) {
       return res.status(400).json({ error: 'Patient ID, Doctor ID, and Diagnosis are required.' });
     }
@@ -287,24 +251,4 @@ app.post('/api/medical-history/add', (req: Request, res: Response) => {
   }
 });
 
-// Production Static Client Serving
-if (process.env.NODE_ENV === 'production' && !process.env.VERCEL) {
-  const distPath = path.join(process.cwd(), 'dist');
-  app.use(express.static(distPath));
-  app.get('*', (req: Request, res: Response) => {
-    if (!req.path.startsWith('/api')) {
-      res.sendFile(path.join(distPath, 'index.html'));
-    }
-  });
-}
-
-// Local Development Server Only
-if (!process.env.VERCEL) {
-  const PORT = process.env.PORT || 3000;
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`[CarePulse Server] Running on http://0.0.0.0:${PORT}`);
-  });
-}
-
-// Export default Express app for Vercel Serverless Function
 export default app;
