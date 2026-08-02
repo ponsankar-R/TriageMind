@@ -2,8 +2,8 @@ import express, { Request, Response } from 'express';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { dbStore } from './server/db';
-import { matchDoctorForSymptoms } from './server/gemini';
+import { dbStore } from './server/db.ts';
+import { matchDoctorForSymptoms } from './server/gemini.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

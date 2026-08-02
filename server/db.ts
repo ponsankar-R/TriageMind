@@ -1,5 +1,5 @@
-import { DoctorUser, PatientUser, Appointment, MedicalRecord } from '../src/types';
-import { INITIAL_DOCTORS, INITIAL_PATIENTS, INITIAL_APPOINTMENTS, INITIAL_MEDICAL_RECORDS } from '../src/lib/mockData';
+import { DoctorUser, PatientUser, Appointment, MedicalRecord } from '../src/types.ts';
+import { INITIAL_DOCTORS, INITIAL_PATIENTS, INITIAL_APPOINTMENTS, INITIAL_MEDICAL_RECORDS } from '../src/lib/mockData.ts';
 import initialDbJson from '../carepulse_db.json';
 
 interface DBState {
