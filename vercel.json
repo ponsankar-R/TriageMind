@@ -3,10 +3,7 @@
     "builds": [
       {
         "src": "server.ts",
-        "use": "@vercel/node",
-        "config": {
-          "includeFiles": ["carepulse_db.json"]
-        }
+        "use": "@vercel/node"
       },
       {
         "src": "package.json",

@@ -13,9 +13,7 @@ class DatabaseStore {
   private state: DBState;
 
   constructor() {
-    // Load directly from imported JSON file or fallback mock data
     if (initialDbJson && Array.isArray(initialDbJson.doctors) && Array.isArray(initialDbJson.patients)) {
-      // Clone memory state to avoid mutating original import
       this.state = JSON.parse(JSON.stringify(initialDbJson));
     } else {
       this.state = {
