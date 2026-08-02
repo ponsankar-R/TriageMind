@@ -1,7 +1,6 @@
-import fs from 'fs';
-import path from 'path';
-import { DoctorUser, PatientUser, Appointment, MedicalRecord, User } from '../src/types.ts';
-import { INITIAL_DOCTORS, INITIAL_PATIENTS, INITIAL_APPOINTMENTS, INITIAL_MEDICAL_RECORDS } from '../src/lib/mockData.ts';
+import { DoctorUser, PatientUser, Appointment, MedicalRecord } from '../src/types';
+import { INITIAL_DOCTORS, INITIAL_PATIENTS, INITIAL_APPOINTMENTS, INITIAL_MEDICAL_RECORDS } from '../src/lib/mockData';
+import initialDbJson from '../carepulse_db.json';
 
 interface DBState {
   doctors: DoctorUser[];
@@ -10,44 +9,21 @@ interface DBState {
   medicalRecords: MedicalRecord[];
 }
 
-const DATA_FILE = path.join(process.cwd(), 'carepulse_db.json');
-
 class DatabaseStore {
   private state: DBState;
 
   constructor() {
-    this.state = {
-      doctors: [...INITIAL_DOCTORS],
-      patients: [...INITIAL_PATIENTS],
-      appointments: [...INITIAL_APPOINTMENTS],
-      medicalRecords: [...INITIAL_MEDICAL_RECORDS],
-    };
-    this.loadFromFile();
-  }
-
-  private loadFromFile() {
-    try {
-      if (fs.existsSync(DATA_FILE)) {
-        const raw = fs.readFileSync(DATA_FILE, 'utf-8');
-        const parsed = JSON.parse(raw);
-        if (parsed && Array.isArray(parsed.doctors) && Array.isArray(parsed.patients)) {
-          this.state = parsed;
-          console.log(`[DB] Successfully loaded state from ${DATA_FILE}`);
-          return;
-        }
-      }
-    } catch (err) {
-      console.warn('[DB] Failed to load data file, falling back to seed data:', err);
-    }
-    this.saveToFile();
-  }
-
-  private saveToFile() {
-    try {
-      fs.writeFileSync(DATA_FILE, JSON.stringify(this.state, null, 2), 'utf-8');
-    } catch (err) {
-      // Gracefully handle Vercel's read-only serverless filesystem
-      console.warn('[DB] Disk write skipped (Running in read-only environment like Vercel). Changes preserved in-memory.');
+    // Load directly from imported JSON file or fallback mock data
+    if (initialDbJson && Array.isArray(initialDbJson.doctors) && Array.isArray(initialDbJson.patients)) {
+      // Clone memory state to avoid mutating original import
+      this.state = JSON.parse(JSON.stringify(initialDbJson));
+    } else {
+      this.state = {
+        doctors: [...INITIAL_DOCTORS],
+        patients: [...INITIAL_PATIENTS],
+        appointments: [...INITIAL_APPOINTMENTS],
+        medicalRecords: [...INITIAL_MEDICAL_RECORDS],
+      };
     }
   }
 
@@ -81,7 +57,6 @@ class DatabaseStore {
     };
 
     this.state.doctors.push(newDoctor);
-    this.saveToFile();
     return newDoctor;
   }
 
@@ -96,7 +71,6 @@ class DatabaseStore {
       ...updates,
     };
 
-    this.saveToFile();
     return this.state.doctors[idx];
   }
 
@@ -116,7 +90,7 @@ class DatabaseStore {
   public createPatient(data: Omit<PatientUser, 'id' | 'role'>): PatientUser {
     const existing = this.getPatientByEmail(data.email);
     if (existing) {
-      return existing; // Return existing patient if logging in / re-registering
+      return existing;
     }
 
     const newPatient: PatientUser = {
@@ -126,7 +100,6 @@ class DatabaseStore {
     };
 
     this.state.patients.push(newPatient);
-    this.saveToFile();
     return newPatient;
   }
 
@@ -161,16 +134,18 @@ class DatabaseStore {
       throw new Error('Selected doctor does not exist.');
     }
 
-    // Check if slot already booked for doctor on date
     const existingBooking = this.state.appointments.find(
-      (a) => a.doctorId === data.doctorId &&
+      (a) =>
+        a.doctorId === data.doctorId &&
         a.appointmentDate === data.appointmentDate &&
         a.timeSlot === data.timeSlot &&
         a.status === 'scheduled'
     );
 
     if (existingBooking) {
-      throw new Error(`Doctor ${doctor.name} already has an appointment booked at ${data.timeSlot} on ${data.appointmentDate}. Please choose another slot.`);
+      throw new Error(
+        `Doctor ${doctor.name} already has an appointment booked at ${data.timeSlot} on ${data.appointmentDate}. Please choose another slot.`
+      );
     }
 
     const newApt: Appointment = {
@@ -194,7 +169,6 @@ class DatabaseStore {
     };
 
     this.state.appointments.unshift(newApt);
-    this.saveToFile();
     return newApt;
   }
 
@@ -204,7 +178,6 @@ class DatabaseStore {
       throw new Error('Appointment not found');
     }
     apt.status = status;
-    this.saveToFile();
     return apt;
   }
 
@@ -222,7 +195,6 @@ class DatabaseStore {
 
     this.state.medicalRecords.unshift(newRecord);
 
-    // If linked to an appointment, mark appointment completed
     if (record.appointmentId) {
       const apt = this.state.appointments.find((a) => a.id === record.appointmentId);
       if (apt) {
@@ -230,7 +202,6 @@ class DatabaseStore {
       }
     }
 
-    this.saveToFile();
     return newRecord;
   }
 }
